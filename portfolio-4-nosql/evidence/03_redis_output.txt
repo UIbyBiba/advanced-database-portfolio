@@ -1,0 +1,48 @@
+==========================================================================
+K1  Live rider locations - GEOADD / GEOSEARCH
+==========================================================================
+redis> ZCARD riders:geo:lagos
+396
+redis> GEOADD riders:geo:lagos 3.3720 6.5101 rider:1500   (position update)
+OK
+redis> GEOSEARCH riders:geo:lagos FROMLONLAT 3.3711 6.5095 BYRADIUS 1.5 km ASC COUNT 5 WITHDIST
+[["rider:1500", 0.1199], ["rider:1480", 0.4865], ["rider:1380", 0.4998], ["rider:480", 0.5728], ["rider:1220", 0.5978]]
+(round trip 0.34 ms)
+
+==========================================================================
+K2  Cached ETA with time-to-live
+==========================================================================
+redis> SET eta:order:598715 '{"eta_min":14,"rider":1480}' EX 30
+OK
+redis> GET eta:order:598715
+{"eta_min": 14, "rider": 1480}
+redis> TTL eta:order:598715
+30
+-> after 30 s the key disappears by itself; the app recomputes the ETA on the next request.
+
+==========================================================================
+K3  OTP rate limit - atomic INCR + EXPIRE (fixed window)
+==========================================================================
+OTP request 1: INCR -> 1  => SEND SMS
+OTP request 2: INCR -> 2  => SEND SMS
+OTP request 3: INCR -> 3  => SEND SMS
+OTP request 4: INCR -> 4  => BLOCKED (limit 3 per 10 min)
+OTP request 5: INCR -> 5  => BLOCKED (limit 3 per 10 min)
+redis> TTL ratelimit:otp:+2348031234567
+600
+
+==========================================================================
+K4  Rider app session - HASH
+==========================================================================
+redis> HGETALL rider:1480:session
+{"device": "Android 14", "app_version": "3.8.1", "status": "ON_DUTY", "last_heartbeat": "1793248990"}
+redis> HINCRBY rider:1480:session jobs_today 1
+1
+
+==========================================================================
+Memory footprint
+==========================================================================
+redis> MEMORY USAGE riders:geo:lagos
+34515 bytes for 396 riders
+redis> DBSIZE
+4

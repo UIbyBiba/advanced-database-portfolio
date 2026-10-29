@@ -1,0 +1,2 @@
+riders=1500  customers=50000  orders=203899
+orders collection: 203899 docs, avg doc size 896 bytes, storage 49.0 MB

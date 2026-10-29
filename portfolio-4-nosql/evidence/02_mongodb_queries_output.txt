@@ -1,0 +1,181 @@
+
+==========================================================================
+N1  Order tracking screen - ONE read returns the whole aggregate
+==========================================================================
+{
+  _id: 396114,
+  city: 'Lagos',
+  status: 'DELIVERED',
+  fee: Decimal128('2000.00'),
+  created_at: ISODate('2026-07-31T04:42:11.105Z'),
+  assigned_at: ISODate('2026-07-31T05:01:46.987Z'),
+  delivered_at: ISODate('2026-07-31T06:05:46.857Z'),
+  customer: {
+    id: 26422,
+    name: 'Halima Oladipo',
+    phone: '+2348000026422'
+  },
+  pickup: {
+    street: '89 Aba Road',
+    zone: 'Surulere',
+    location: {
+      type: 'Point',
+      coordinates: [
+        3.362554,
+        6.494645
+      ]
+    }
+  },
+  dropoff: {
+    street: '2 Delivery Close',
+    zone: 'Surulere',
+    recipient_phone: '+2347000497801'
+  },
+  package: {
+    size: 'M',
+    weight_kg: 0.53
+  },
+  rider: {
+    id: 681,
+    name: 'Abubakar Okafor',
+    vehicle: 'BIKE'
+  },
+  payment: {
+    method: 'CASH',
+    status: 'SUCCESS',
+    reference: 'EKD260731000396114'
+  },
+  rating: {
+    score: 3,
+    comment: 'Package arrived safely'
+  },
+  timeline: [
+    {
+      status: 'PENDING',
+      at: ISODate('2026-07-31T04:42:11.105Z'),
+      by: 'CUSTOMER'
+    },
+    {
+      status: 'ASSIGNED',
+      at: ISODate('2026-07-31T05:01:46.987Z'),
+      by: 'SYSTEM'
+    },
+    {
+      status: 'PICKED_UP',
+      at: ISODate('2026-07-31T05:11:46.987Z'),
+      by: 'RIDER'
+    },
+    {
+      status: 'DELIVERED',
+      at: ISODate('2026-07-31T06:05:46.857Z'),
+      by: 'RIDER'
+    }
+  ]
+}
+plan stage: IDHACK | docsExamined: 1 | time: 0 ms
+Relational equivalent needs 7 tables joined (order, address, 2x zone, city, rider, payment, rating, history).
+
+==========================================================================
+N2  Customer order history - effect of a compound index
+==========================================================================
+BEFORE  stages: PROJECTION_SIMPLE <- SORT <- COLLSCAN
+        docsExamined=203899 keysExamined=0 nReturned=7 time=104 ms
+AFTER   stages: LIMIT <- PROJECTION_SIMPLE <- FETCH <- IXSCAN(customer.id_1_created_at_-1)
+        docsExamined=7 keysExamined=7 nReturned=7 time=1 ms
+Note: equality field first, sort field second (ESR rule) -> no in-memory SORT stage.
+
+==========================================================================
+N3  Dispatch - 5 nearest ON_DUTY bikes within 3 km of a Yaba pickup (2dsphere + $geoNear)
+==========================================================================
+{
+  _id: 1480,
+  name: 'Kunle Oladipo',
+  zone: 'Yaba',
+  distance_m: 487
+}
+{
+  _id: 1380,
+  name: 'Aisha Usman',
+  zone: 'Yaba',
+  distance_m: 500
+}
+{
+  _id: 480,
+  name: 'Abubakar Musa',
+  zone: 'Yaba',
+  distance_m: 573
+}
+{
+  _id: 1220,
+  name: 'Zainab Bello',
+  zone: 'Yaba',
+  distance_m: 598
+}
+{
+  _id: 1400,
+  name: 'Chioma Lawal',
+  zone: 'Yaba',
+  distance_m: 917
+}
+index used: "location_2dsphere"
+
+==========================================================================
+N4  Analytics - revenue and average delivery time per zone, last 7 days (aggregation pipeline)
+==========================================================================
+{"orders":2069,"city":"Lagos","zone":"Lekki Phase 1","revenue":6279700,"avg_minutes":94.8}
+{"orders":1862,"city":"Lagos","zone":"Victoria Island","revenue":5651600,"avg_minutes":94.8}
+{"orders":2239,"city":"Lagos","zone":"Ikeja","revenue":5022100,"avg_minutes":94.5}
+{"orders":2094,"city":"Lagos","zone":"Yaba","revenue":4271200,"avg_minutes":95}
+{"orders":1372,"city":"Lagos","zone":"Ajah","revenue":3757500,"avg_minutes":94.5}
+{"orders":1761,"city":"Lagos","zone":"Surulere","revenue":3596200,"avg_minutes":95.7}
+{"orders":1336,"city":"Abuja","zone":"Wuse","revenue":3203400,"avg_minutes":94.9}
+{"orders":1390,"city":"Lagos","zone":"Oshodi","revenue":2823100,"avg_minutes":95}
+
+==========================================================================
+N5  Rider picks up a parcel - status change + timeline append in ONE atomic document update
+==========================================================================
+{
+  acknowledged: true,
+  insertedId: null,
+  matchedCount: 1,
+  modifiedCount: 1,
+  upsertedCount: 0
+}
+{
+  _id: 598728,
+  status: 'PICKED_UP',
+  timeline: [
+    {
+      status: 'PENDING',
+      at: ISODate('2026-10-29T01:18:26.367Z'),
+      by: 'CUSTOMER'
+    },
+    {
+      status: 'ASSIGNED',
+      at: ISODate('2026-10-29T02:02:50.262Z'),
+      by: 'SYSTEM'
+    },
+    {
+      status: 'PICKED_UP',
+      at: ISODate('2026-10-29T04:42:55.780Z'),
+      by: 'RIDER'
+    }
+  ]
+}
+second rider tries the same transition -> matchedCount = 0 (already picked up)
+
+==========================================================================
+N6  $jsonSchema validation - invalid documents are rejected by the server
+==========================================================================
+REJECTED: code 121 Document failed validation
+  - field 'status' failed: value was not found in enum
+  - field 'fee' failed: type did not match
+  - field 'package' failed: nested fields failed: size, weight_kg
+  - field 'timeline' failed: array did not match specified length
+
+==========================================================================
+Storage summary
+==========================================================================
+orders     docs= 203899  avgDoc=  896 B  data=182.8 MB  indexes=4 (12.3 MB)
+riders     docs=   1500  avgDoc=  233 B  data=0.3 MB  indexes=3 (0.1 MB)
+customers  docs=  50000  avgDoc=  363 B  data=18.2 MB  indexes=2 (1.1 MB)
