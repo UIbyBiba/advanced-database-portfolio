@@ -1,0 +1,8 @@
+--
+2026-10-29 05:40:55.901 WAT [1619] ERROR:  deadlock detected
+2026-10-29 05:40:55.901 WAT [1619] DETAIL:  Process 1619 waits for ShareLock on transaction 1013; blocked by process 1618.
+	Process 1618 waits for ShareLock on transaction 1014; blocked by process 1619.
+	Process 1619: SELECT balance FROM wallet WHERE rider_id = $1 FOR UPDATE
+	Process 1618: SELECT balance FROM wallet WHERE rider_id = $1 FOR UPDATE
+2026-10-29 05:40:55.901 WAT [1619] HINT:  See server log for query details.
+2026-10-29 05:40:55.901 WAT [1619] CONTEXT:  while locking tuple (412,40) in relation "wallet"

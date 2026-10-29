@@ -1,0 +1,129 @@
+EkoDash Portfolio 3 - run at 2026-10-29 05:40:52 on PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+
+==============================================================================
+D1  COMMIT - order + wallet payment as ONE atomic transaction
+==============================================================================
+  [  0.020s]     customer 1 wallet before = 5000.00
+  [  0.022s] TX  INSERT delivery_order            -> order_id 600010
+  [  0.023s] TX  UPDATE wallet balance - 2000     -> wallet 1
+  [  0.024s] TX  INSERT wallet_transaction (DEBIT)
+  [  0.024s] TX  INSERT payment (WALLET, SUCCESS)
+  [  0.025s] TX  INSERT order_status_history
+  [  0.025s] TX  COMMIT
+  [  0.027s]     customer 1 wallet after  = 3000.00   (order/payment/ledger rows = (1, 1, 1))
+  RESULT: all 5 changes are durable together; balance 5000.00 -> 3000.00
+
+==============================================================================
+D2  ROLLBACK - insufficient balance undoes the whole transaction; SAVEPOINT
+==============================================================================
+  [  0.031s]     customer 2 wallet = 300.00, orders = 18
+  [  0.033s] TX  INSERT delivery_order            -> order_id 600011
+  [  0.034s] TX  ERROR 23514 check_violation: wallet_balance_check
+  [  0.034s] TX  ROLLBACK
+  [  0.034s]     customer 2 wallet = 300.00, orders = 18
+  RESULT: the order INSERT that had already succeeded was undone as well (atomicity).
+
+  -- SAVEPOINT: an optional step fails but the main work is kept --
+  [  0.035s] TX  INSERT delivery_order            -> order_id 600012
+  [  0.036s] TX  UPDATE wallet balance - 1500     -> wallet 1
+  [  0.036s] TX  INSERT wallet_transaction (DEBIT)
+  [  0.037s] TX  INSERT payment (WALLET, SUCCESS)
+  [  0.037s] TX  INSERT order_status_history
+  [  0.037s] TX  SAVEPOINT before_rating
+  [  0.038s] TX  ERROR 23514 on rating (score 9) -> ROLLBACK TO SAVEPOINT
+  [  0.038s] TX  COMMIT
+  RESULT: order 600012 and its payment kept (payment rows = 1); only the bad rating was discarded.
+
+==============================================================================
+D3  LOST UPDATE - two payouts credited to rider 1 at the same time (start 10000)
+==============================================================================
+  -- (a) read-modify-write in application code, READ COMMITTED, no lock --
+  [  0.047s] T1  SELECT balance            -> 10000.00
+  [  0.051s] T2  SELECT balance            -> 10000.00
+  [  0.051s] T2  UPDATE balance = 10000.00 + 500 = 10500.00
+  [  0.253s] T1  UPDATE balance = 10000.00 + 1000 = 11000.00
+  [  0.253s] T2  COMMIT
+  [  0.454s] T1  COMMIT
+  RESULT: final balance = 11000.00; expected 11500 -> LOST UPDATE: a credit of 500.00 vanished
+
+  -- (b) same code with SELECT ... FOR UPDATE (pessimistic row lock) --
+  [  0.469s] T1  SELECT balance FOR UPDATE -> 10000.00
+  [  0.470s] T1  UPDATE balance = 10000.00 + 1000 = 11000.00
+  [  0.671s] T1  COMMIT
+  [  0.673s] T2  SELECT balance FOR UPDATE -> 11000.00
+  [  0.674s] T2  UPDATE balance = 11000.00 + 500 = 11500.00
+  [  0.875s] T2  COMMIT
+  RESULT: final balance = 11500.00; T2 waited for T1's lock, then read the new value -> correct
+
+==============================================================================
+D4  RACE CONDITION - two riders tap 'Accept' on the same order
+==============================================================================
+  -- (a) check-then-act: SELECT status, then UPDATE --
+  [  0.895s] T1  rider 101 sees order 600013 status = PENDING
+  [  0.897s] T2  rider 121 sees order 600013 status = PENDING
+  [  0.899s] T1  UPDATE ... assigned_rider_id = 101; COMMIT  -> app tells rider 101 'job is yours'
+  [  0.901s] T2  UPDATE ... assigned_rider_id = 121; COMMIT  -> app tells rider 121 'job is yours'
+  RESULT: BOTH riders were told the job is theirs; database keeps rider 121 (the other was silently overwritten)
+
+  -- (b) atomic conditional UPDATE (compare-and-set) --
+  [  0.920s] T1  conditional UPDATE ... WHERE status='PENDING' -> 1 row: ACCEPTED
+  [  0.920s] T2  conditional UPDATE ... WHERE status='PENDING' -> 0 rows: already taken
+  RESULT: exactly one rider wins (rider 101); the other is told immediately that the job is taken
+
+  -- (c) two dispatcher workers pulling from the PENDING queue with SKIP LOCKED --
+  [  0.938s] W1  SELECT ... FOR UPDATE SKIP LOCKED -> order 600015
+  [  1.039s] W2  SELECT ... FOR UPDATE SKIP LOCKED -> order 600016
+  RESULT: W1 got order 600015, W2 got order 600016 - no waiting, no duplicate work
+
+==============================================================================
+D5  NON-REPEATABLE READ - a quote is computed while finance changes the price
+==============================================================================
+  [  1.553s] T1  [READ_COMMITTED] read Yaba base_fee  -> 1500.00
+  [  1.555s] T2  UPDATE Yaba base_fee = 1700; COMMIT
+  [  1.555s] T1  [READ_COMMITTED] read again (same txn)  -> 1700.00
+  RESULT: READ COMMITTED saw 1500.00 then 1700.00 inside ONE transaction (non-repeatable read)
+
+  [  1.571s] T1  [REPEATABLE_READ] read Yaba base_fee  -> 1500.00
+  [  1.573s] T2  UPDATE Yaba base_fee = 1700; COMMIT
+  [  1.573s] T1  [REPEATABLE_READ] read again (same txn)  -> 1500.00
+  RESULT: REPEATABLE READ saw 1500.00 then 1500.00 - one consistent snapshot (MVCC)
+
+==============================================================================
+D6  WRITE SKEW - rule: a zone must always keep at least 1 rider ON_DUTY (zone 99 has 2)
+==============================================================================
+  [  1.587s] T1  [REPEATABLE_READ] riders on duty in zone 99 = 2
+  [  1.588s] T2  [REPEATABLE_READ] riders on duty in zone 99 = 2
+  [  1.589s] T2  rule ok (>=2 on duty) -> rider 1500 goes OFF_DUTY
+  [  1.589s] T1  rule ok (>=2 on duty) -> rider 1499 goes OFF_DUTY
+  [  1.590s] T1  COMMIT ok
+  [  1.790s] T2  COMMIT ok
+  RESULT: REPEATABLE READ -> {'T1': 'committed', 'T2': 'committed'}; riders left on duty = 0  (business rule BROKEN)
+
+  [  1.810s] T1  [SERIALIZABLE] riders on duty in zone 99 = 2
+  [  1.811s] T2  [SERIALIZABLE] riders on duty in zone 99 = 2
+  [  1.812s] T1  rule ok (>=2 on duty) -> rider 1499 goes OFF_DUTY
+  [  1.812s] T2  rule ok (>=2 on duty) -> rider 1500 goes OFF_DUTY
+  [  1.813s] T1  COMMIT ok
+  [  2.013s] T2  ERROR 40001 serialization_failure -> ROLLBACK (app should retry)
+  RESULT: SERIALIZABLE    -> {'T1': 'committed', 'T2': 'aborted'}; riders left on duty = 1  (rule kept)
+  [  2.025s] T2  retry: riders on duty = 1 -> request refused by the rule, nothing written
+
+==============================================================================
+D7  DEADLOCK - riders 1 and 2 send each other money at the same moment
+==============================================================================
+  -- (a) each transaction locks its own wallet first --
+  [  2.031s] T1  locked wallet of rider 1
+  [  2.032s] T2  locked wallet of rider 2
+  [  3.033s] T2  ERROR 40P01 deadlock_detected -> PostgreSQL chose this txn as victim, ROLLBACK
+  [  3.033s] T1  locked wallet of rider 2
+  [  3.035s] T1  moved 700 from rider 1 to rider 2; COMMIT
+  RESULT: circular wait; PostgreSQL's deadlock detector (deadlock_timeout = 1s) aborted one transaction
+
+  -- (b) both transactions lock wallets in ascending rider_id order --
+  [  3.040s] T1  locked wallet of rider 1
+  [  3.341s] T1  locked wallet of rider 2
+  [  3.344s] T1  moved 700 from rider 1 to rider 2; COMMIT
+  [  3.344s] T2  locked wallet of rider 1
+  [  3.344s] T2  locked wallet of rider 2
+  [  3.346s] T2  moved 300 from rider 2 to rider 1; COMMIT
+  RESULT: second transaction simply waits for the first; no deadlock possible
