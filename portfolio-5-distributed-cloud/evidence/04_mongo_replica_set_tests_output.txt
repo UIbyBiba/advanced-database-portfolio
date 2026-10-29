@@ -1,0 +1,44 @@
+
+==========================================================================
+M1  Replica set members
+==========================================================================
+127.0.0.1:27101    PRIMARY
+127.0.0.1:27102    SECONDARY
+127.0.0.1:27103    SECONDARY
+
+==========================================================================
+M2  Write concern latency (500 inserts each)
+==========================================================================
+w:1         (ack by primary only): median 1.201 ms  p95 2.919 ms
+w:majority  (ack by 2 of 3 members): median 3.135 ms  p95 4.414 ms
+w:majority survives the loss of the primary; w:1 can be rolled back if the primary dies before replicating.
+
+==========================================================================
+M3  Reading from a SECONDARY with readConcern majority
+==========================================================================
+count DELIVERED = 1000 in 3.7 ms, cursor served by 127.0.0.1:27102 (SECONDARY)
+
+==========================================================================
+M4  Multi-document transaction: create order AND debit customer wallet atomically
+==========================================================================
+order 900001 fee 2000: COMMITTED
+   wallet = 1000.00, order exists = True
+order 900002 fee 2500: ABORTED (insufficient balance 1000.00 < 2500)
+   wallet = 1000.00, order exists = False
+
+==========================================================================
+M5  Failover: kill -9 the PRIMARY while the app keeps writing
+==========================================================================
+primary = 127.0.0.1:27101 (pid 2850); sending SIGKILL
+new primary elected: 127.0.0.1:27103
+first successful write 10.54 s after the kill (driver retried); ok=40 failed=0
+   127.0.0.1:27101    (not reachable/healthy)
+   127.0.0.1:27102    SECONDARY
+   127.0.0.1:27103    PRIMARY
+restarting old node 127.0.0.1:27101 ...
+old node rejoined as: SECONDARY
+   127.0.0.1:27101    PRIMARY
+   127.0.0.1:27102    SECONDARY
+   127.0.0.1:27103    SECONDARY
+writes made during failover present after recovery: 40
+

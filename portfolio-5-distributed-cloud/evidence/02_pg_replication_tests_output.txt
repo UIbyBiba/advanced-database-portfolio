@@ -1,0 +1,54 @@
+
+==========================================================================
+R1  Replication status (run on the PRIMARY)
+==========================================================================
+application_name | client_addr | state     | sync_state | primary_lsn | replay_lsn | bytes_behind
+-----------------+-------------+-----------+------------+-------------+------------+-------------
+walreceiver      | 127.0.0.1   | streaming | async      | 0/5E000000  | 0/5E000000 | 0           
+replica pg_is_in_recovery(): True
+
+==========================================================================
+R2  Write on primary -> visible on replica
+==========================================================================
+order 600050 committed on primary; visible on replica after 65.7 ms
+
+==========================================================================
+R3  Attempt to write on the replica
+==========================================================================
+ERROR 25006: cannot execute UPDATE in a read-only transaction
+
+==========================================================================
+R4  Read scaling - weekly zone revenue report executed on the REPLICA
+==========================================================================
+zone_name       | orders | revenue   
+----------------+--------+-----------
+Lekki Phase 1   | 1903   | 5458800.00
+Victoria Island | 1784   | 5113500.00
+Ikeja           | 2049   | 4551400.00
+Yaba            | 1970   | 4096200.00
+Ajah            | 1451   | 3891200.00
+(served by replica in 60.7 ms - no load on the primary)
+
+==========================================================================
+R5  Replication lag during a burst of 300 000 history rows
+==========================================================================
+samples taken: 11; peak bytes behind = 27,135,704 (27.1 MB), replay_lag at peak = 0:00:00.032396
+final bytes behind = 0  -> replica caught up
+
+==========================================================================
+R6  Commit latency: asynchronous vs synchronous replication (200 single-row commits each)
+==========================================================================
+async  (synchronous_commit=local): median 0.769 ms   p95 1.130 ms
+sync   (synchronous_commit=remote_apply): median 1.112 ms   p95 1.461 ms
+pg_stat_replication.sync_state while synchronous = 'sync'
+
+==========================================================================
+R7  Failover: primary crashes, replica is promoted
+==========================================================================
+pg_ctl stop -m immediate (simulated crash): server stopped
+primary unreachable: connection refused
+pg_ctl promote: server promoted (0.11 s)
+new primary pg_is_in_recovery(): False
+write accepted on promoted node: order 600083
+order 600050 written in R2 (before the crash) is present on the new primary: True
+identity gap 600050 -> 600083: PostgreSQL logs sequence values to WAL in batches of 32, so pre-allocated values are skipped after a crash/promotion (expected, not data loss)

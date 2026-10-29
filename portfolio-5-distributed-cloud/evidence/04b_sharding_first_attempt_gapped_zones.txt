@@ -1,0 +1,19 @@
+==========================================================================
+S1  Shard key {city: 1, _id: 1} with ZONE sharding (each city's data lives on a chosen shard)
+==========================================================================
+ranges: Lagos -> shardLagos | Abuja, Port Harcourt -> shardAbujaPH
+
+==========================================================================
+S2  Load 203 899 orders through mongos, then inspect distribution
+==========================================================================
+loaded in 9.5 s
+shardLagos    holds  146664 docs  by city: {'Lagos': 146664}
+shardAbujaPH  holds   57235 docs  by city: {'Abuja': 38584, 'Port Harcourt': 18651}
+chunks per shard: {'shardLagos': 3, 'shardAbujaPH': 4}
+
+==========================================================================
+S3  Query routing: targeted vs scatter-gather
+==========================================================================
+WITH shard key   {city:'Abuja', customer.id}: stage=SHARD_MERGE   shards contacted=['shardLagos', 'shardAbujaPH'] docsExamined=38584
+WITHOUT shard key {customer.id}            : stage=SHARD_MERGE   shards contacted=['shardAbujaPH', 'shardLagos'] docsExamined=203899
+Targeted queries touch one shard; queries without the shard key must ask every shard (scatter-gather).

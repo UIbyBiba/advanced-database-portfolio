@@ -1,0 +1,40 @@
+flowchart LR
+    subgraph Clients["Clients (Nigeria)"]
+        CA["Customer app"]
+        RA["Rider app<br/>(GPS ping every 5 s)"]
+        AD["Admin / dispatch web"]
+    end
+
+    subgraph Cloud["Cloud region - primary (e.g. AWS af-south-1, Cape Town)"]
+        API["API services<br/>(stateless, auto-scaling)"]
+        subgraph AZa["Availability Zone A"]
+            PGP[("PostgreSQL primary<br/>orders, payments, wallets")]
+            MGP[("MongoDB primary<br/>tracking documents")]
+            RD[("Redis primary<br/>live rider GEO, cache")]
+        end
+        subgraph AZb["Availability Zone B"]
+            PGS[("PostgreSQL synchronous standby<br/>(automatic failover)")]
+            MGS1[("MongoDB secondary")]
+            RDR[("Redis replica")]
+        end
+        subgraph AZc["Availability Zone C"]
+            PGR[("PostgreSQL async read replica<br/>reports / BI")]
+            MGS2[("MongoDB secondary")]
+        end
+        BK[["Encrypted backups + WAL archive<br/>object storage, 35-day PITR"]]
+    end
+
+    DR[("Cross-region async replica<br/>(disaster recovery, e.g. eu-west)")]
+
+    CA & RA & AD --> API
+    API -->|"writes (ACID)"| PGP
+    API -->|"reports (read-only)"| PGR
+    API -->|"tracking reads/writes<br/>w: majority"| MGP
+    API -->|"GEOSEARCH, ETA cache"| RD
+    PGP -- "sync WAL stream" --> PGS
+    PGP -- "async WAL stream" --> PGR
+    MGP -- "oplog" --> MGS1
+    MGP -- "oplog" --> MGS2
+    RD -- "async" --> RDR
+    PGP -. "WAL archive" .-> BK
+    BK -. "async copy" .-> DR

@@ -1,0 +1,20 @@
+--- A) replica set
+started mongod rs-27101 on :27101
+started mongod rs-27102 on :27102
+started mongod rs-27103 on :27103
+replica set ekors initiated, primary = 127.0.0.1:27101
+--- B) sharded cluster
+started mongod cfg-27201 on :27201
+started mongod shard-lagos on :27301
+started mongod shard-abujaph on :27302
+started mongos router on :27200
+[
+  {
+    _id: 'shardLagos',
+    host: 'shardLagos/127.0.0.1:27301'
+  },
+  {
+    _id: 'shardAbujaPH',
+    host: 'shardAbujaPH/127.0.0.1:27302'
+  }
+]

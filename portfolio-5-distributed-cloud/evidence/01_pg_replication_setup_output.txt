@@ -1,0 +1,7 @@
+--- 1. Primary settings needed for replication
+ERROR:  role "replicator" already exists
+ERROR:  replication slot "ekodash_replica_1" already exists
+--- 2. Clone the primary with pg_basebackup (-R writes standby.signal + primary_conninfo)
+626104/626104 kB (100%), 1/1 tablespace
+--- 3. Start the replica on port 5433
+replica pg_is_in_recovery = t
