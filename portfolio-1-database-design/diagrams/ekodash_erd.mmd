@@ -1,0 +1,105 @@
+erDiagram
+    CITY ||--o{ ZONE : "is divided into"
+    ZONE ||--o{ CUSTOMER_ADDRESS : "contains"
+    ZONE ||--o{ RIDER : "is home zone of"
+    ZONE ||--o{ DELIVERY_ORDER : "is drop-off zone of"
+    CUSTOMER ||--o{ CUSTOMER_ADDRESS : "saves"
+    CUSTOMER ||--o{ DELIVERY_ORDER : "places"
+    CUSTOMER_ADDRESS ||--o{ DELIVERY_ORDER : "is pickup point of"
+    RIDER |o--o{ DELIVERY_ORDER : "is assigned"
+    DELIVERY_ORDER ||--|{ ORDER_STATUS_HISTORY : "has"
+    DELIVERY_ORDER ||--|| PAYMENT : "is paid by"
+    DELIVERY_ORDER ||--o| RIDER_RATING : "receives"
+    CUSTOMER ||--o| WALLET : "owns"
+    RIDER ||--o| WALLET : "owns"
+    WALLET ||--o{ WALLET_TRANSACTION : "records"
+    DELIVERY_ORDER |o--o{ WALLET_TRANSACTION : "settles"
+
+    CITY {
+        smallint city_id PK
+        varchar city_name UK
+        varchar state_name
+    }
+    ZONE {
+        smallint zone_id PK
+        smallint city_id FK
+        varchar zone_name
+        numeric base_fee
+    }
+    CUSTOMER {
+        bigint customer_id PK
+        varchar full_name
+        varchar phone UK
+        varchar email UK
+        varchar status
+        timestamptz created_at
+    }
+    CUSTOMER_ADDRESS {
+        bigint address_id PK
+        bigint customer_id FK
+        smallint zone_id FK
+        varchar label
+        varchar street
+        numeric latitude
+        numeric longitude
+    }
+    RIDER {
+        int rider_id PK
+        varchar full_name
+        varchar phone UK
+        varchar vehicle_type
+        varchar plate_number UK
+        smallint home_zone_id FK
+        varchar duty_status
+    }
+    ADMIN_USER {
+        smallint admin_id PK
+        varchar email UK
+        varchar role
+    }
+    DELIVERY_ORDER {
+        bigint order_id PK
+        bigint customer_id FK
+        bigint pickup_address_id FK
+        smallint dropoff_zone_id FK
+        int assigned_rider_id FK
+        char package_size
+        numeric weight_kg
+        numeric fee_amount
+        varchar status
+        timestamptz created_at
+        timestamptz delivered_at
+    }
+    ORDER_STATUS_HISTORY {
+        bigint history_id PK
+        bigint order_id FK
+        varchar status
+        timestamptz changed_at
+        varchar changed_by
+    }
+    PAYMENT {
+        bigint payment_id PK
+        bigint order_id FK,UK
+        varchar method
+        numeric amount
+        varchar status
+        varchar reference UK
+    }
+    WALLET {
+        bigint wallet_id PK
+        bigint customer_id FK,UK
+        int rider_id FK,UK
+        numeric balance
+    }
+    WALLET_TRANSACTION {
+        bigint txn_id PK
+        bigint wallet_id FK
+        bigint order_id FK
+        varchar entry_type
+        numeric amount
+    }
+    RIDER_RATING {
+        bigint order_id PK,FK
+        smallint score
+        varchar comment
+    }

@@ -1,0 +1,40 @@
+SET
+--- Test 1: phone must be Nigerian +234 format (CHECK) ---
+psql:sql/03_constraint_tests.sql:10: ERROR:  new row for relation "customer" violates check constraint "customer_phone_check"
+DETAIL:  Failing row contains (50001, Test User, 08031234567, null, ACTIVE, 2026-10-29 05:15:51.313029+01).
+--- Test 2: duplicate phone number (UNIQUE) ---
+psql:sql/03_constraint_tests.sql:13: ERROR:  duplicate key value violates unique constraint "customer_phone_key"
+DETAIL:  Key (phone)=(+2348000000001) already exists.
+--- Test 3: order for a customer that does not exist (FOREIGN KEY) ---
+psql:sql/03_constraint_tests.sql:18: ERROR:  insert or update on table "delivery_order" violates foreign key constraint "delivery_order_customer_id_fkey"
+DETAIL:  Key (customer_id)=(999999) is not present in table "customer".
+--- Test 4: order marked ASSIGNED without a rider (table CHECK) ---
+psql:sql/03_constraint_tests.sql:21: ERROR:  new row for relation "delivery_order" violates check constraint "chk_rider_when_assigned"
+DETAIL:  Failing row contains (598709, 29435, 47096, 10 Delivery Close, 10, +2347000088809, M, 6.56, 2100.00, ASSIGNED, null, 2026-10-29 02:14:44.271077+01, null, null).
+--- Test 5: DELIVERED without a delivered_at time (table CHECK) ---
+psql:sql/03_constraint_tests.sql:24: ERROR:  new row for relation "delivery_order" violates check constraint "chk_delivered_time"
+DETAIL:  Failing row contains (1, 34282, 54851, 73 Delivery Close, 17, +2347000405672, S, 4.03, 1700.00, DELIVERED, 616, 2025-10-29 05:16:21.288143+01, 2025-10-29 05:36:18.366681+01, null).
+--- Test 6: wallet balance cannot go negative (CHECK) ---
+psql:sql/03_constraint_tests.sql:27: ERROR:  new row for relation "wallet" violates check constraint "wallet_balance_check"
+DETAIL:  Failing row contains (1, 1, null, -9997785.14, 2026-10-29 05:15:15.840957+01).
+--- Test 7: a wallet must belong to exactly one owner (exclusive-arc CHECK) ---
+psql:sql/03_constraint_tests.sql:30: ERROR:  new row for relation "wallet" violates check constraint "chk_wallet_owner"
+DETAIL:  Failing row contains (51501, null, null, 0.00, 2026-10-29 05:15:51.523556+01).
+--- Test 8: rating score outside 1-5 (CHECK) ---
+psql:sql/03_constraint_tests.sql:35: ERROR:  new row for relation "rider_rating" violates check constraint "rider_rating_score_check"
+DETAIL:  Failing row contains (3, 7, null, 2026-10-29 05:15:51.523888+01).
+--- Test 9: a second payment for the same order (UNIQUE = 1:1) ---
+psql:sql/03_constraint_tests.sql:38: ERROR:  duplicate key value violates unique constraint "payment_order_id_key"
+DETAIL:  Key (order_id)=(1) already exists.
+--- Test 10: deleting a rider who has orders (FOREIGN KEY RESTRICT) ---
+psql:sql/03_constraint_tests.sql:41: ERROR:  update or delete on table "rider" violates foreign key constraint "delivery_order_assigned_rider_id_fkey" on table "delivery_order"
+DETAIL:  Key (rider_id)=(616) is still referenced from table "delivery_order".
+--- Control: a valid order is accepted ---
+BEGIN
+ order_id | status  |          created_at           
+----------+---------+-------------------------------
+   600002 | PENDING | 2026-10-29 05:15:51.603089+01
+(1 row)
+
+INSERT 0 1
+ROLLBACK
