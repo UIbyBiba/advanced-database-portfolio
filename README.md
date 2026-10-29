@@ -2,7 +2,7 @@
 
 **Course:** MIT 8103 Advanced Database Systems, MIVA Open University, 2026/2027 First Semester
 **Student:** Abdullahi Habiba (2026/A/MIT/0437)
-**Repository:** <https://github.com/YOUR-GITHUB-USERNAME/advanced-database-portfolio> *(private; assessor access granted)*
+**Repository:** <https://github.com/UIbyBiba/advanced-database-portfolio>
 
 ## Selected case study
 
