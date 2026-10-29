@@ -1,0 +1,18 @@
+-- Q3 [baseline]  median of 5 runs = 60.035 ms
+SELECT count(*) AS deliveries, sum(fee_amount) AS gross_fees
+FROM delivery_order
+WHERE assigned_rider_id = 616
+  AND delivered_at >= date_trunc('month', now()) - interval '1 month'
+  AND delivered_at <  date_trunc('month', now());
+
+Aggregate  (cost=28570.17..28570.18 rows=1 width=40) (actual time=60.647..60.648 rows=1 loops=1)
+  Buffers: shared hit=10570
+  ->  Seq Scan on delivery_order  (cost=0.00..28570.00 rows=33 width=5) (actual time=32.599..60.626 rows=23 loops=1)
+        Filter: ((assigned_rider_id = 616) AND (delivered_at < date_trunc('month'::text, now())) AND (delivered_at >= (date_trunc('month'::text, now()) - '1 mon'::interval)))
+        Rows Removed by Filter: 599977
+        Buffers: shared hit=10570
+Planning Time: 0.087 ms
+Execution Time: 60.671 ms
+
+-- first rows of result:
+(23, Decimal('53600.00'))

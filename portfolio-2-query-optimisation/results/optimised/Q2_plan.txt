@@ -1,0 +1,31 @@
+-- Q2 [optimised]  median of 5 runs = 0.036 ms
+SELECT order_id, customer_id, package_size, created_at
+FROM delivery_order
+WHERE status = 'PENDING' AND dropoff_zone_id = 4
+ORDER BY created_at;
+
+Sort  (cost=189.00..189.12 rows=48 width=26) (actual time=0.023..0.025 rows=34 loops=1)
+  Sort Key: created_at
+  Sort Method: quicksort  Memory: 26kB
+  Buffers: shared hit=18
+  ->  Bitmap Heap Scan on delivery_order  (cost=4.65..187.66 rows=48 width=26) (actual time=0.006..0.018 rows=34 loops=1)
+        Recheck Cond: ((dropoff_zone_id = 4) AND ((status)::text = 'PENDING'::text))
+        Heap Blocks: exact=16
+        Buffers: shared hit=18
+        ->  Bitmap Index Scan on ix_order_pending_zone  (cost=0.00..4.64 rows=48 width=0) (actual time=0.003..0.003 rows=34 loops=1)
+              Index Cond: (dropoff_zone_id = 4)
+              Buffers: shared hit=2
+Planning Time: 0.026 ms
+Execution Time: 0.033 ms
+
+-- first rows of result:
+(598775, 3370, 'M', datetime.datetime(2026, 10, 29, 2, 26, 29, 782373, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))
+(598834, 11935, 'S', datetime.datetime(2026, 10, 29, 2, 35, 6, 313619, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))
+(598926, 39039, 'M', datetime.datetime(2026, 10, 29, 2, 50, 46, 410383, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))
+(598964, 13509, 'M', datetime.datetime(2026, 10, 29, 2, 59, 31, 466496, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))
+(598969, 40244, 'M', datetime.datetime(2026, 10, 29, 3, 0, 8, 464616, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))
+(598985, 22055, 'M', datetime.datetime(2026, 10, 29, 3, 2, 20, 947337, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))
+(598999, 8686, 'M', datetime.datetime(2026, 10, 29, 3, 4, 24, 821790, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))
+(599026, 11370, 'M', datetime.datetime(2026, 10, 29, 3, 8, 21, 200604, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))
+(599051, 32127, 'L', datetime.datetime(2026, 10, 29, 3, 12, 28, 638751, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))
+(599066, 40328, 'L', datetime.datetime(2026, 10, 29, 3, 15, 15, 654442, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))

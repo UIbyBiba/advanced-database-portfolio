@@ -1,0 +1,99 @@
+-- Q6a [optimised]  median of 5 runs = 3645.135 ms
+SELECT r.rider_id, r.full_name,
+       (SELECT avg(rr.score) FROM rider_rating rr JOIN delivery_order d ON d.order_id = rr.order_id
+         WHERE d.assigned_rider_id = r.rider_id) AS avg_score,
+       (SELECT count(*) FROM rider_rating rr JOIN delivery_order d ON d.order_id = rr.order_id
+         WHERE d.assigned_rider_id = r.rider_id) AS ratings
+FROM rider r JOIN zone z ON z.zone_id = r.home_zone_id
+WHERE z.city_id = 1
+  AND (SELECT count(*) FROM rider_rating rr JOIN delivery_order d ON d.order_id = rr.order_id
+        WHERE d.assigned_rider_id = r.rider_id) >= 50
+ORDER BY avg_score DESC, ratings DESC
+LIMIT 10;
+
+Limit  (cost=6157593.51..6157593.54 rows=10 width=57) (actual time=3649.130..3649.138 rows=10 loops=1)
+  Buffers: shared hit=5759582 read=2808
+  ->  Sort  (cost=6157593.51..6157594.26 rows=300 width=57) (actual time=3429.822..3429.828 rows=10 loops=1)
+        Sort Key: ((SubPlan 1)) DESC, ((SubPlan 2)) DESC
+        Sort Method: top-N heapsort  Memory: 26kB
+        Buffers: shared hit=5759582 read=2808
+        ->  Nested Loop  (cost=0.00..6157587.03 rows=300 width=57) (actual time=6.247..3428.175 rows=900 loops=1)
+              Join Filter: (z.zone_id = r.home_zone_id)
+              Rows Removed by Join Filter: 12150
+              Buffers: shared hit=5759582 read=2808
+              ->  Seq Scan on rider r  (cost=0.00..4095652.50 rows=500 width=19) (actual time=2.537..1462.986 rows=1500 loops=1)
+                    Filter: ((SubPlan 3) >= 50)
+                    Buffers: shared hit=2247308 read=2808
+                    SubPlan 3
+                      ->  Aggregate  (cost=2730.40..2730.41 rows=1 width=8) (actual time=0.973..0.973 rows=1 loops=1500)
+                            Buffers: shared hit=2247308 read=2790
+                            ->  Nested Loop  (cost=11.76..2729.80 rows=239 width=0) (actual time=0.084..0.957 rows=254 loops=1500)
+                                  Buffers: shared hit=2247308 read=2790
+                                  ->  Bitmap Heap Scan on delivery_order d_2  (cost=11.34..1288.36 rows=376 width=8) (actual time=0.079..0.367 rows=376 loops=1500)
+                                        Recheck Cond: (assigned_rider_id = r.rider_id)
+                                        Heap Blocks: exact=552286
+                                        Buffers: shared hit=556765 read=2790
+                                        ->  Bitmap Index Scan on ix_order_rider_delivered  (cost=0.00..11.25 rows=376 width=0) (actual time=0.038..0.038 rows=376 loops=1500)
+                                              Index Cond: (assigned_rider_id = r.rider_id)
+                                              Buffers: shared hit=4479 read=2790
+                                  ->  Index Only Scan using rider_rating_pkey on rider_rating rr_2  (cost=0.42..3.83 rows=1 width=8) (actual time=0.001..0.001 rows=1 loops=563514)
+                                        Index Cond: (order_id = d_2.order_id)
+                                        Heap Fetches: 0
+                                        Buffers: shared hit=1690543
+              ->  Materialize  (cost=0.00..1.31 rows=12 width=2) (actual time=0.000..0.001 rows=9 loops=1500)
+                    Buffers: shared hit=1
+                    ->  Seq Scan on zone z  (cost=0.00..1.25 rows=12 width=2) (actual time=0.035..0.044 rows=12 loops=1)
+                          Filter: (city_id = 1)
+                          Rows Removed by Filter: 8
+                          Buffers: shared hit=1
+              SubPlan 1
+                ->  Aggregate  (cost=4142.40..4142.41 rows=1 width=32) (actual time=1.196..1.196 rows=1 loops=900)
+                      Buffers: shared hit=1893441
+                      ->  Nested Loop  (cost=11.76..4141.80 rows=239 width=2) (actual time=0.088..1.172 rows=305 loops=900)
+                            Buffers: shared hit=1893441
+                            ->  Bitmap Heap Scan on delivery_order d  (cost=11.34..1288.36 rows=376 width=8) (actual time=0.081..0.343 rows=451 loops=900)
+                                  Recheck Cond: (assigned_rider_id = r.rider_id)
+                                  Heap Blocks: exact=396699
+                                  Buffers: shared hit=401395
+                                  ->  Bitmap Index Scan on ix_order_rider_delivered  (cost=0.00..11.25 rows=376 width=0) (actual time=0.035..0.035 rows=451 loops=900)
+                                        Index Cond: (assigned_rider_id = r.rider_id)
+                                        Buffers: shared hit=4696
+                            ->  Index Scan using rider_rating_pkey on rider_rating rr  (cost=0.42..7.59 rows=1 width=10) (actual time=0.002..0.002 rows=1 loops=405812)
+                                  Index Cond: (order_id = d.order_id)
+                                  Buffers: shared hit=1492046
+              SubPlan 2
+                ->  Aggregate  (cost=2730.40..2730.41 rows=1 width=8) (actual time=0.980..0.980 rows=1 loops=900)
+                      Buffers: shared hit=1618832
+                      ->  Nested Loop  (cost=11.76..2729.80 rows=239 width=0) (actual time=0.083..0.961 rows=305 loops=900)
+                            Buffers: shared hit=1618832
+                            ->  Bitmap Heap Scan on delivery_order d_1  (cost=11.34..1288.36 rows=376 width=8) (actual time=0.077..0.319 rows=451 loops=900)
+                                  Recheck Cond: (assigned_rider_id = r.rider_id)
+                                  Heap Blocks: exact=396699
+                                  Buffers: shared hit=401395
+                                  ->  Bitmap Index Scan on ix_order_rider_delivered  (cost=0.00..11.25 rows=376 width=0) (actual time=0.033..0.033 rows=451 loops=900)
+                                        Index Cond: (assigned_rider_id = r.rider_id)
+                                        Buffers: shared hit=4696
+                            ->  Index Only Scan using rider_rating_pkey on rider_rating rr_1  (cost=0.42..3.83 rows=1 width=8) (actual time=0.001..0.001 rows=1 loops=405812)
+                                  Index Cond: (order_id = d_1.order_id)
+                                  Heap Fetches: 0
+                                  Buffers: shared hit=1217437
+Planning:
+  Buffers: shared hit=44 read=8
+Planning Time: 1.514 ms
+JIT:
+  Functions: 44
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 1.814 ms, Inlining 11.971 ms, Optimization 120.024 ms, Emission 87.398 ms, Total 221.207 ms
+Execution Time: 3651.110 ms
+
+-- first rows of result:
+(510, 'Bukola Akinola', Decimal('3.9292929292929293'), 198)
+(1246, 'Femi Akinola', Decimal('3.9107981220657277'), 213)
+(308, 'Fatima Danjuma', Decimal('3.8981481481481481'), 216)
+(1407, 'Aisha Adebayo', Decimal('3.8842975206611570'), 242)
+(1431, 'Femi Okonkwo', Decimal('3.8835616438356164'), 292)
+(588, 'Yusuf Lawal', Decimal('3.8732394366197183'), 213)
+(328, 'Ifeanyi Chukwu', Decimal('3.8729508196721311'), 244)
+(330, 'Fatima Usman', Decimal('3.8639053254437870'), 169)
+(568, 'Abubakar Oladipo', Decimal('3.8497854077253219'), 233)
+(1186, 'Tunde Akinola', Decimal('3.8482142857142857'), 224)

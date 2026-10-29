@@ -1,0 +1,18 @@
+-- Q3 [optimised]  median of 5 runs = 0.019 ms
+SELECT count(*) AS deliveries, sum(fee_amount) AS gross_fees
+FROM delivery_order
+WHERE assigned_rider_id = 616
+  AND delivered_at >= date_trunc('month', now()) - interval '1 month'
+  AND delivered_at <  date_trunc('month', now());
+
+Aggregate  (cost=9.35..9.36 rows=1 width=40) (actual time=0.010..0.011 rows=1 loops=1)
+  Buffers: shared hit=4
+  ->  Index Only Scan using ix_order_rider_delivered on delivery_order  (cost=0.44..9.18 rows=33 width=5) (actual time=0.004..0.006 rows=23 loops=1)
+        Index Cond: ((assigned_rider_id = 616) AND (delivered_at >= (date_trunc('month'::text, now()) - '1 mon'::interval)) AND (delivered_at < date_trunc('month'::text, now())))
+        Heap Fetches: 0
+        Buffers: shared hit=4
+Planning Time: 0.033 ms
+Execution Time: 0.018 ms
+
+-- first rows of result:
+(23, Decimal('53600.00'))

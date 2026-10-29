@@ -1,0 +1,13 @@
+           index           |  size   
+---------------------------+---------
+ ix_order_rider_delivered  | 23 MB
+ ix_order_customer_created | 18 MB
+ delivery_order_pkey       | 13 MB
+ customer_email_key        | 2944 kB
+ ix_customer_email_lower   | 1760 kB
+ customer_phone_key        | 1552 kB
+ customer_pkey             | 1112 kB
+ ix_order_pending_zone     | 40 kB
+ ix_order_created_brin     | 32 kB
+(9 rows)
+

@@ -1,0 +1,48 @@
+-- Q6a [baseline]  CANCELLED: did not finish within 60 s
+SELECT r.rider_id, r.full_name,
+       (SELECT avg(rr.score) FROM rider_rating rr JOIN delivery_order d ON d.order_id = rr.order_id
+         WHERE d.assigned_rider_id = r.rider_id) AS avg_score,
+       (SELECT count(*) FROM rider_rating rr JOIN delivery_order d ON d.order_id = rr.order_id
+         WHERE d.assigned_rider_id = r.rider_id) AS ratings
+FROM rider r JOIN zone z ON z.zone_id = r.home_zone_id
+WHERE z.city_id = 1
+  AND (SELECT count(*) FROM rider_rating rr JOIN delivery_order d ON d.order_id = rr.order_id
+        WHERE d.assigned_rider_id = r.rider_id) >= 50
+ORDER BY avg_score DESC, ratings DESC
+LIMIT 10;
+
+-- estimated plan (EXPLAIN without ANALYZE):
+Limit  (cost=41399031.25..41399031.27 rows=10 width=57)
+  ->  Sort  (cost=41399031.25..41399032.00 rows=300 width=57)
+        Sort Key: ((SubPlan 1)) DESC, ((SubPlan 2)) DESC
+        ->  Nested Loop  (cost=0.00..41399024.77 rows=300 width=57)
+              Join Filter: (z.zone_id = r.home_zone_id)
+              ->  Seq Scan on rider r  (cost=0.00..29268108.03 rows=500 width=19)
+                    Filter: ((SubPlan 3) >= 50)
+                    SubPlan 3
+                      ->  Aggregate  (cost=19512.04..19512.05 rows=1 width=8)
+                            ->  Nested Loop  (cost=0.42..19511.44 rows=239 width=0)
+                                  ->  Seq Scan on delivery_order d_2  (cost=0.00..18070.00 rows=376 width=8)
+                                        Filter: (assigned_rider_id = r.rider_id)
+                                  ->  Index Only Scan using rider_rating_pkey on rider_rating rr_2  (cost=0.42..3.83 rows=1 width=8)
+                                        Index Cond: (order_id = d_2.order_id)
+              ->  Materialize  (cost=0.00..1.31 rows=12 width=2)
+                    ->  Seq Scan on zone z  (cost=0.00..1.25 rows=12 width=2)
+                          Filter: (city_id = 1)
+              SubPlan 1
+                ->  Aggregate  (cost=20924.04..20924.05 rows=1 width=32)
+                      ->  Nested Loop  (cost=0.42..20923.44 rows=239 width=2)
+                            ->  Seq Scan on delivery_order d  (cost=0.00..18070.00 rows=376 width=8)
+                                  Filter: (assigned_rider_id = r.rider_id)
+                            ->  Index Scan using rider_rating_pkey on rider_rating rr  (cost=0.42..7.59 rows=1 width=10)
+                                  Index Cond: (order_id = d.order_id)
+              SubPlan 2
+                ->  Aggregate  (cost=19512.04..19512.05 rows=1 width=8)
+                      ->  Nested Loop  (cost=0.42..19511.44 rows=239 width=0)
+                            ->  Seq Scan on delivery_order d_1  (cost=0.00..18070.00 rows=376 width=8)
+                                  Filter: (assigned_rider_id = r.rider_id)
+                            ->  Index Only Scan using rider_rating_pkey on rider_rating rr_1  (cost=0.42..3.83 rows=1 width=8)
+                                  Index Cond: (order_id = d_1.order_id)
+JIT:
+  Functions: 38
+  Options: Inlining true, Optimization true, Expressions true, Deforming true

@@ -1,0 +1,14 @@
+-- Q5 [baseline]  median of 5 runs = 12.226 ms
+SELECT customer_id, full_name, phone, status
+FROM customer
+WHERE lower(email) = lower('USER4321@Mail.NG');
+
+Seq Scan on customer  (cost=0.00..1354.00 rows=250 width=43) (actual time=1.021..11.905 rows=1 loops=1)
+  Filter: (lower((email)::text) = 'user4321@mail.ng'::text)
+  Rows Removed by Filter: 49999
+  Buffers: shared hit=604
+Planning Time: 0.032 ms
+Execution Time: 11.914 ms
+
+-- first rows of result:
+(4321, 'Nnamdi Adeyemi', '+2348000004321', 'ACTIVE')

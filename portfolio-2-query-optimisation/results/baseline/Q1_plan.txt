@@ -1,0 +1,26 @@
+-- Q1 [baseline]  median of 5 runs = 36.876 ms
+SELECT order_id, status, fee_amount, created_at
+FROM delivery_order
+WHERE customer_id = 1234
+ORDER BY created_at DESC
+LIMIT 20;
+
+Limit  (cost=18070.27..18070.30 rows=14 width=30) (actual time=36.857..36.860 rows=5 loops=1)
+  Buffers: shared hit=10570
+  ->  Sort  (cost=18070.27..18070.30 rows=14 width=30) (actual time=36.855..36.856 rows=5 loops=1)
+        Sort Key: created_at DESC
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=10570
+        ->  Seq Scan on delivery_order  (cost=0.00..18070.00 rows=14 width=30) (actual time=10.866..36.843 rows=5 loops=1)
+              Filter: (customer_id = 1234)
+              Rows Removed by Filter: 599995
+              Buffers: shared hit=10570
+Planning Time: 0.069 ms
+Execution Time: 36.876 ms
+
+-- first rows of result:
+(548358, 'DELIVERED', Decimal('2900.00'), datetime.datetime(2026, 10, 14, 5, 59, 32, 622681, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))
+(352961, 'DELIVERED', Decimal('2900.00'), datetime.datetime(2026, 7, 5, 19, 56, 21, 94957, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))
+(295028, 'DELIVERED', Decimal('1700.00'), datetime.datetime(2026, 5, 30, 8, 59, 5, 437701, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))
+(86916, 'DELIVERED', Decimal('2200.00'), datetime.datetime(2026, 1, 4, 5, 27, 2, 87034, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))
+(73505, 'DELIVERED', Decimal('1700.00'), datetime.datetime(2025, 12, 25, 5, 5, 6, 8728, tzinfo=zoneinfo.ZoneInfo(key='Africa/Lagos')))

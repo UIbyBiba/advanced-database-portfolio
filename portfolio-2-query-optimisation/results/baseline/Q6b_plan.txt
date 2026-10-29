@@ -1,0 +1,66 @@
+-- Q6b [baseline]  median of 5 runs = 577.663 ms
+SELECT r.rider_id, r.full_name, round(avg(rr.score), 3) AS avg_score, count(*) AS ratings
+FROM rider r
+JOIN zone z            ON z.zone_id = r.home_zone_id AND z.city_id = 1
+JOIN delivery_order d  ON d.assigned_rider_id = r.rider_id
+JOIN rider_rating rr   ON rr.order_id = d.order_id
+GROUP BY r.rider_id, r.full_name
+HAVING count(*) >= 50
+ORDER BY avg_score DESC, ratings DESC
+LIMIT 10;
+
+Limit  (cost=42907.83..42907.85 rows=10 width=57) (actual time=544.005..544.014 rows=10 loops=1)
+  Buffers: shared hit=13462, temp read=3119 written=3119
+  ->  Sort  (cost=42907.83..42909.08 rows=500 width=57) (actual time=544.004..544.011 rows=10 loops=1)
+        Sort Key: (round(avg(rr.score), 3)) DESC, (count(*)) DESC
+        Sort Method: top-N heapsort  Memory: 26kB
+        Buffers: shared hit=13462, temp read=3119 written=3119
+        ->  HashAggregate  (cost=42873.27..42897.02 rows=500 width=57) (actual time=543.438..543.808 rows=900 loops=1)
+              Group Key: r.rider_id
+              Filter: (count(*) >= 50)
+              Batches: 1  Memory Usage: 321kB
+              Buffers: shared hit=13462, temp read=3119 written=3119
+              ->  Hash Join  (cost=13369.30..41157.24 rows=228804 width=19) (actual time=89.376..496.275 rows=274610 loops=1)
+                    Hash Cond: (d.order_id = rr.order_id)
+                    Buffers: shared hit=13462, temp read=3119 written=3119
+                    ->  Hash Join  (cost=53.15..20111.08 rows=360000 width=25) (actual time=0.442..246.875 rows=405812 loops=1)
+                          Hash Cond: (r.home_zone_id = z.zone_id)
+                          Buffers: shared hit=10589
+                          ->  Hash Join  (cost=51.75..18200.93 rows=600000 width=27) (actual time=0.426..177.747 rows=563514 loops=1)
+                                Hash Cond: (d.assigned_rider_id = r.rider_id)
+                                Buffers: shared hit=10588
+                                ->  Seq Scan on delivery_order d  (cost=0.00..16570.00 rows=600000 width=12) (actual time=0.003..43.980 rows=600000 loops=1)
+                                      Buffers: shared hit=10570
+                                ->  Hash  (cost=33.00..33.00 rows=1500 width=19) (actual time=0.417..0.418 rows=1500 loops=1)
+                                      Buckets: 2048  Batches: 1  Memory Usage: 93kB
+                                      Buffers: shared hit=18
+                                      ->  Seq Scan on rider r  (cost=0.00..33.00 rows=1500 width=19) (actual time=0.003..0.243 rows=1500 loops=1)
+                                            Buffers: shared hit=18
+                          ->  Hash  (cost=1.25..1.25 rows=12 width=2) (actual time=0.010..0.011 rows=12 loops=1)
+                                Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                Buffers: shared hit=1
+                                ->  Seq Scan on zone z  (cost=0.00..1.25 rows=12 width=2) (actual time=0.005..0.007 rows=12 loops=1)
+                                      Filter: (city_id = 1)
+                                      Rows Removed by Filter: 8
+                                      Buffers: shared hit=1
+                    ->  Hash  (cost=6686.40..6686.40 rows=381340 width=10) (actual time=88.837..88.838 rows=381340 loops=1)
+                          Buckets: 262144  Batches: 4  Memory Usage: 6528kB
+                          Buffers: shared hit=2873, temp written=1254
+                          ->  Seq Scan on rider_rating rr  (cost=0.00..6686.40 rows=381340 width=10) (actual time=0.004..36.145 rows=381340 loops=1)
+                                Buffers: shared hit=2873
+Planning:
+  Buffers: shared hit=29
+Planning Time: 0.547 ms
+Execution Time: 544.083 ms
+
+-- first rows of result:
+(510, 'Bukola Akinola', Decimal('3.929'), 198)
+(1246, 'Femi Akinola', Decimal('3.911'), 213)
+(308, 'Fatima Danjuma', Decimal('3.898'), 216)
+(1431, 'Femi Okonkwo', Decimal('3.884'), 292)
+(1407, 'Aisha Adebayo', Decimal('3.884'), 242)
+(328, 'Ifeanyi Chukwu', Decimal('3.873'), 244)
+(588, 'Yusuf Lawal', Decimal('3.873'), 213)
+(330, 'Fatima Usman', Decimal('3.864'), 169)
+(568, 'Abubakar Oladipo', Decimal('3.850'), 233)
+(1186, 'Tunde Akinola', Decimal('3.848'), 224)

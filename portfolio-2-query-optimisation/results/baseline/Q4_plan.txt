@@ -1,0 +1,45 @@
+-- Q4 [baseline]  median of 5 runs = 157.303 ms
+SELECT z.zone_name, count(*) AS orders, sum(d.fee_amount) AS revenue
+FROM delivery_order d
+JOIN zone z ON z.zone_id = d.dropoff_zone_id
+WHERE d.created_at >= now() - interval '7 days'
+  AND d.status = 'DELIVERED'
+GROUP BY z.zone_name
+ORDER BY revenue DESC;
+
+Sort  (cost=22850.66..22850.71 rows=20 width=48) (actual time=151.065..151.069 rows=20 loops=1)
+  Sort Key: (sum(d.fee_amount)) DESC
+  Sort Method: quicksort  Memory: 26kB
+  Buffers: shared hit=10571
+  ->  HashAggregate  (cost=22849.98..22850.23 rows=20 width=48) (actual time=151.015..151.049 rows=20 loops=1)
+        Group Key: z.zone_name
+        Batches: 1  Memory Usage: 24kB
+        Buffers: shared hit=10571
+        ->  Hash Join  (cost=1.45..22654.41 rows=26076 width=13) (actual time=107.798..145.842 rows=25069 loops=1)
+              Hash Cond: (d.dropoff_zone_id = z.zone_id)
+              Buffers: shared hit=10571
+              ->  Seq Scan on delivery_order d  (cost=0.00..22570.00 rows=26076 width=7) (actual time=107.750..141.925 rows=25069 loops=1)
+                    Filter: (((status)::text = 'DELIVERED'::text) AND (created_at >= (now() - '7 days'::interval)))
+                    Rows Removed by Filter: 574931
+                    Buffers: shared hit=10570
+              ->  Hash  (cost=1.20..1.20 rows=20 width=10) (actual time=0.019..0.020 rows=20 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                    Buffers: shared hit=1
+                    ->  Seq Scan on zone z  (cost=0.00..1.20 rows=20 width=10) (actual time=0.009..0.012 rows=20 loops=1)
+                          Buffers: shared hit=1
+Planning:
+  Buffers: shared hit=4
+Planning Time: 0.175 ms
+Execution Time: 151.108 ms
+
+-- first rows of result:
+('Lekki Phase 1', 1904, Decimal('5461800.00'))
+('Victoria Island', 1784, Decimal('5113500.00'))
+('Ikeja', 2052, Decimal('4557500.00'))
+('Yaba', 1970, Decimal('4096200.00'))
+('Ajah', 1452, Decimal('3893400.00'))
+('Surulere', 1709, Decimal('3613100.00'))
+('Wuse', 1313, Decimal('3135800.00'))
+('Oshodi', 1437, Decimal('3074800.00'))
+('Festac', 1220, Decimal('2794100.00'))
+('Ikorodu', 1159, Decimal('2783600.00'))

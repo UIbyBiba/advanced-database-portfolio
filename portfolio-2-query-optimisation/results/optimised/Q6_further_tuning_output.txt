@@ -1,0 +1,103 @@
+SET
+SET
+=== (a) Q6b with work_mem = 64MB (default is 4MB) ===
+SET
+                                                      QUERY PLAN                                                       
+-----------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=536.333..536.340 rows=10 loops=1)
+   Buffers: shared hit=13468
+   ->  Sort (actual time=536.331..536.337 rows=10 loops=1)
+         Sort Key: (round(avg(rr.score), 3)) DESC, (count(*)) DESC
+         Sort Method: top-N heapsort  Memory: 26kB
+         Buffers: shared hit=13468
+         ->  HashAggregate (actual time=535.768..536.104 rows=900 loops=1)
+               Group Key: r.rider_id
+               Filter: (count(*) >= 50)
+               Batches: 1  Memory Usage: 321kB
+               Buffers: shared hit=13462
+               ->  Hash Join (actual time=115.937..489.728 rows=274610 loops=1)
+                     Hash Cond: (r.home_zone_id = z.zone_id)
+                     Buffers: shared hit=13462
+                     ->  Hash Join (actual time=115.897..441.104 rows=381340 loops=1)
+                           Hash Cond: (d.assigned_rider_id = r.rider_id)
+                           Buffers: shared hit=13461
+                           ->  Hash Join (actual time=115.474..374.665 rows=381340 loops=1)
+                                 Hash Cond: (d.order_id = rr.order_id)
+                                 Buffers: shared hit=13443
+                                 ->  Seq Scan on delivery_order d (actual time=0.006..47.777 rows=600000 loops=1)
+                                       Buffers: shared hit=10570
+                                 ->  Hash (actual time=113.401..113.402 rows=381340 loops=1)
+                                       Buckets: 524288  Batches: 1  Memory Usage: 21972kB
+                                       Buffers: shared hit=2873
+                                       ->  Seq Scan on rider_rating rr (actual time=0.010..39.773 rows=381340 loops=1)
+                                             Buffers: shared hit=2873
+                           ->  Hash (actual time=0.406..0.407 rows=1500 loops=1)
+                                 Buckets: 2048  Batches: 1  Memory Usage: 93kB
+                                 Buffers: shared hit=18
+                                 ->  Seq Scan on rider r (actual time=0.005..0.200 rows=1500 loops=1)
+                                       Buffers: shared hit=18
+                     ->  Hash (actual time=0.022..0.023 rows=12 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                           Buffers: shared hit=1
+                           ->  Seq Scan on zone z (actual time=0.005..0.007 rows=12 loops=1)
+                                 Filter: (city_id = 1)
+                                 Rows Removed by Filter: 8
+                                 Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=461 read=21
+ Planning Time: 1.781 ms
+ Execution Time: 536.558 ms
+(43 rows)
+
+RESET
+=== (b) Materialized view for the leaderboard ===
+psql:sql/03_further_tuning_q6.sql:28: NOTICE:  materialized view "mv_rider_rating_summary" does not exist, skipping
+DROP MATERIALIZED VIEW
+SELECT 1500
+CREATE INDEX
+ANALYZE
+                                                 QUERY PLAN                                                 
+------------------------------------------------------------------------------------------------------------
+ Limit (actual time=1.201..1.204 rows=10 loops=1)
+   Buffers: shared hit=35
+   ->  Sort (actual time=1.199..1.201 rows=10 loops=1)
+         Sort Key: (round(m.avg_score, 3)) DESC, m.ratings DESC
+         Sort Method: top-N heapsort  Memory: 26kB
+         Buffers: shared hit=35
+         ->  Hash Join (actual time=0.402..0.977 rows=900 loops=1)
+               Hash Cond: (r.rider_id = m.rider_id)
+               Buffers: shared hit=35
+               ->  Hash Join (actual time=0.017..0.349 rows=900 loops=1)
+                     Hash Cond: (r.home_zone_id = z.zone_id)
+                     Buffers: shared hit=19
+                     ->  Seq Scan on rider r (actual time=0.004..0.111 rows=1500 loops=1)
+                           Buffers: shared hit=18
+                     ->  Hash (actual time=0.008..0.008 rows=12 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                           Buffers: shared hit=1
+                           ->  Seq Scan on zone z (actual time=0.003..0.005 rows=12 loops=1)
+                                 Filter: (city_id = 1)
+                                 Rows Removed by Filter: 8
+                                 Buffers: shared hit=1
+               ->  Hash (actual time=0.380..0.380 rows=1500 loops=1)
+                     Buckets: 2048  Batches: 1  Memory Usage: 104kB
+                     Buffers: shared hit=16
+                     ->  Seq Scan on mv_rider_rating_summary m (actual time=0.003..0.159 rows=1500 loops=1)
+                           Filter: (ratings >= 50)
+                           Buffers: shared hit=16
+ Planning:
+   Buffers: shared hit=29 read=4
+ Planning Time: 0.303 ms
+ Execution Time: 1.231 ms
+(31 rows)
+
+=== Same top-10 result as Q6b? (should return 0 rows of difference) ===
+ rider_id 
+----------
+(0 rows)
+
+=== Cost of keeping it fresh: REFRESH ... CONCURRENTLY (readers are not blocked) ===
+Timing is on.
+REFRESH MATERIALIZED VIEW
+Time: 378.285 ms
+Timing is off.

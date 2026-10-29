@@ -1,0 +1,13 @@
+-- Q5 [optimised]  median of 5 runs = 0.011 ms
+SELECT customer_id, full_name, phone, status
+FROM customer
+WHERE lower(email) = lower('USER4321@Mail.NG');
+
+Index Scan using ix_customer_email_lower on customer  (cost=0.41..8.43 rows=1 width=43) (actual time=0.008..0.009 rows=1 loops=1)
+  Index Cond: (lower((email)::text) = 'user4321@mail.ng'::text)
+  Buffers: shared hit=4
+Planning Time: 0.038 ms
+Execution Time: 0.015 ms
+
+-- first rows of result:
+(4321, 'Nnamdi Adeyemi', '+2348000004321', 'ACTIVE')
